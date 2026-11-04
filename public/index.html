@@ -1,0 +1,1587 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CFO Content Engine — Live</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #121826;
+      --panel-2: #1a2233;
+      --border: #243049;
+      --text: #e7ecf5;
+      --muted: #8a97b0;
+      --accent: #4ea1ff;
+      --ok: #3ccf91;
+      --warn: #f2b94b;
+      --bad: #ff6b6b;
+      --builder: #7c5cff;
+      --seller: #ff9f43;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #0e1421, #0b0f17);
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { margin: 0; font-size: 15px; letter-spacing: .3px; }
+    header h1 small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px;
+      background: var(--panel); border: 1px solid var(--border); font-size: 12px; color: var(--muted);
+    }
+    .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+    .pill.live .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: pulse 1.4s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+
+    main { display: grid; grid-template-columns: 1fr 360px; gap: 16px; padding: 16px; }
+    @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+
+    .board { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 12px; }
+    @media (max-width: 1600px) { .board { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    @media (max-width: 900px)  { .board { grid-template-columns: 1fr; } }
+
+    .col {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      display: flex; flex-direction: column; min-height: 300px;
+    }
+    .col h2 {
+      margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--border);
+      font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .col h2 .count {
+      background: var(--panel-2); color: var(--text);
+      padding: 2px 8px; border-radius: 999px; font-size: 11px;
+    }
+    .col .cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; }
+
+    .card {
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px; cursor: default; transition: transform .12s ease, border-color .12s ease;
+      animation: fadein .25s ease;
+    }
+    .card.flash { animation: flash 1.2s ease; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    @keyframes flash {
+      0%   { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(78,161,255,.25); }
+      100% { border-color: var(--border);  box-shadow: none; }
+    }
+    .card .topic { font-weight: 600; margin-bottom: 4px; }
+    .card .meta  { color: var(--muted); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+    .tag { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .03em; }
+    .tag.builder { background: rgba(124,92,255,.18); color: var(--builder); border: 1px solid rgba(124,92,255,.4); }
+    .tag.seller  { background: rgba(255,159,67,.14); color: var(--seller);  border: 1px solid rgba(255,159,67,.4); }
+
+    aside { display: flex; flex-direction: column; gap: 12px; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px;
+    }
+    .panel h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+    form.new-idea { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; }
+    select, input, button {
+      background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; padding: 8px 10px; font: inherit;
+    }
+    button { cursor: pointer; background: var(--accent); border-color: var(--accent); color: #001427; font-weight: 600; }
+    button:hover { filter: brightness(1.08); }
+    button.ghost { background: transparent; color: var(--text); border-color: var(--border); font-weight: 500; }
+
+    .activity { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .log {
+      display: grid; grid-template-columns: 62px 1fr; gap: 8px;
+      font-size: 12px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2);
+    }
+    .log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .log .msg b { color: var(--accent); }
+
+    .counts { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .counts .c {
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px; text-align: center;
+    }
+    .counts .c .n { font-size: 20px; font-weight: 700; }
+    .counts .c .l { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+    .empty { color: var(--muted); font-size: 12px; padding: 12px; text-align: center; }
+
+    /* Approval column styling */
+    .card.approval { border-color: rgba(78,161,255,.5); background: linear-gradient(180deg, #16223a, #121826); }
+
+    /* Cooldown badge: row is waiting out a transient error (503/429/timeout).
+       NOT a failure — the engine will retry automatically when cooldown passes.
+       Amber tint so it's distinct from errors (red) or active work (blue). */
+    .cooldown-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 1px 6px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+      background: rgba(242,185,75,.14); color: var(--warn);
+      border: 1px solid rgba(242,185,75,.35);
+    }
+    .card.cooldown { border-color: rgba(242,185,75,.45); }
+
+    /* Rejection-reason modal. Shown when the operator clicks Reject. The
+       captured reason + note flow into the creative agent's system prompt
+       so Claude learns the operator's preferences over time. */
+    .rej-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(3, 7, 18, .72);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .rej-modal {
+      width: 100%; max-width: 520px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px 20px 16px 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.45);
+      opacity: 0; transform: translateY(6px);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .rej-modal.show { opacity: 1; transform: none; }
+    .rej-title { font-size: 15px; font-weight: 700; }
+    .rej-sub   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .rej-tags  { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 12px 0; }
+    .rej-tag {
+      background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 10px; font-size: 12px; cursor: pointer;
+      font-family: inherit;
+    }
+    .rej-tag:hover { border-color: var(--accent); color: var(--accent); }
+    .rej-tag.selected {
+      background: var(--bad); color: #300;
+      border-color: var(--bad); font-weight: 600;
+    }
+    .rej-note-label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .rej-note {
+      width: 100%; resize: vertical; min-height: 64px;
+      background: #0a0f1a; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text); padding: 8px 10px; font-size: 13px;
+      font-family: inherit; line-height: 1.4;
+    }
+    .rej-note:focus { outline: none; border-color: var(--accent); }
+    .rej-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+    .rej-cancel, .rej-submit {
+      padding: 7px 14px; font-size: 13px; font-weight: 600;
+      border-radius: 4px; cursor: pointer; font-family: inherit;
+    }
+    .rej-cancel { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+    .rej-cancel:hover { color: var(--text); border-color: var(--muted); }
+    .rej-submit { background: var(--bad); color: #300; border: 1px solid var(--bad); }
+    .rej-submit:disabled, .approve-submit:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Approval-mode override — the modal swaps its accent to gold for ★ Winner */
+    .rej-modal.approve-mode { border-left: 3px solid #f2b94b; padding-left: 17px; }
+    .rej-modal.approve-mode .rej-tag.selected {
+      background: linear-gradient(180deg, #ffd861, #f2b94b);
+      color: #2a1a00; border-color: #f2b94b;
+    }
+    .approve-submit {
+      background: linear-gradient(180deg, #ffd861, #f2b94b);
+      border: 1px solid #f2b94b; color: #2a1a00; font-weight: 700;
+      padding: 7px 14px; font-size: 13px; border-radius: 4px;
+      cursor: pointer; font-family: inherit;
+    }
+    .approve-submit:hover:not(:disabled) { filter: brightness(1.08); }
+
+    /* Toast stack (bottom-right). Used for transient "retrying..." messages
+       that aren't worth interrupting the user with a modal alert. */
+    #toast-stack {
+      position: fixed; bottom: 16px; right: 16px; z-index: 100;
+      display: flex; flex-direction: column; gap: 8px; max-width: 360px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--panel); color: var(--text);
+      border: 1px solid rgba(242,185,75,.45);
+      border-left: 3px solid var(--warn);
+      border-radius: 6px; padding: 10px 14px;
+      font-size: 13px; line-height: 1.45;
+      box-shadow: 0 4px 16px rgba(0,0,0,.3);
+      opacity: 0; transform: translateY(8px);
+      transition: opacity .25s ease, transform .25s ease;
+      pointer-events: auto;
+    }
+    .toast.show { opacity: 1; transform: none; }
+    .actions { display: flex; gap: 6px; margin-top: 8px; }
+    .actions button { flex: 1; padding: 6px 8px; font-size: 12px; border-radius: 5px; font-weight: 600; }
+    .btn-approve { background: var(--ok); border-color: var(--ok); color: #003822; }
+    .btn-winner {
+      background: linear-gradient(180deg, #ffd861, #f2b94b);
+      border: 1px solid #f2b94b;
+      color: #2a1a00; font-weight: 700;
+      flex: 0 0 auto !important; padding: 6px 10px !important;
+    }
+    .btn-winner:hover:not(:disabled) { filter: brightness(1.08); }
+    .btn-reject  { background: transparent; border-color: var(--bad); color: var(--bad); }
+    .btn-advance {
+      background: transparent; border: 1px solid var(--accent);
+      color: var(--accent); display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .btn-advance:hover:not(:disabled) { background: rgba(78,161,255,.12); }
+    .btn-advance:disabled { opacity: .6; cursor: progress; }
+    .btn-copy {
+      background: transparent; border: 1px solid var(--ok); color: var(--ok);
+      font-size: 11px; white-space: nowrap;
+    }
+    .btn-copy:hover:not(:disabled) { background: rgba(60,207,145,.14); }
+    .btn-copy.copied { background: var(--ok); color: #003822; }
+    .btn-advance .spin {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid currentColor; border-right-color: transparent;
+      animation: btnspin .8s linear infinite;
+    }
+    @keyframes btnspin { to { transform: rotate(360deg); } }
+    .btn-delete  {
+      flex: 0 0 auto !important; width: 30px; padding: 6px 0 !important;
+      text-align: center; font-size: 14px; color: var(--muted);
+      border-color: transparent; background: transparent;
+    }
+    .btn-delete:hover { color: var(--bad); border-color: var(--bad); }
+    .posts { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .post  {
+      background: rgba(255,255,255,.04); border: 1px solid var(--border);
+      padding: 6px 8px; border-radius: 5px; font-size: 11px;
+    }
+    .post .plat { color: var(--accent); font-weight: 700; letter-spacing: .04em; font-size: 10px; margin-bottom: 2px; }
+    .post .cap  { color: var(--text); line-height: 1.35; }
+    .post .tags { color: var(--muted); margin-top: 2px; }
+
+    /* Header Full-Auto toggle */
+    .mode { display: flex; align-items: center; gap: 10px; }
+    .switch {
+      position: relative; width: 44px; height: 24px; background: var(--panel-2);
+      border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .switch::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 18px; height: 18px; border-radius: 50%; background: var(--muted);
+      transition: left .15s ease, background .15s ease;
+    }
+    .switch.on { background: rgba(60,207,145,.2); border-color: var(--ok); }
+    .switch.on::after { left: 22px; background: var(--ok); }
+    .mode .lbl { font-size: 12px; color: var(--muted); }
+    .mode .lbl.active { color: var(--text); font-weight: 600; }
+    .mode .auto-pill {
+      padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700;
+      background: rgba(60,207,145,.15); color: var(--ok); border: 1px solid rgba(60,207,145,.4);
+      letter-spacing: .05em;
+    }
+    .mode .auto-pill.off { background: rgba(242,185,75,.12); color: var(--warn); border-color: rgba(242,185,75,.4); }
+
+    /* Production panel controls */
+    .prod-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .prod-row:last-child { margin-bottom: 0; }
+    .prod-row .label { font-size: 13px; }
+    .prod-row .sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .prod-meter {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700; font-size: 13px; color: var(--text);
+      background: var(--panel-2); border: 1px solid var(--border);
+      padding: 3px 8px; border-radius: 999px; min-width: 48px; text-align: center;
+    }
+    .prod-meter.full { color: var(--warn); border-color: rgba(242,185,75,.5); }
+    .gen-one {
+      display: grid; grid-template-columns: 110px 1fr; gap: 8px; margin-top: 10px;
+    }
+    .cap-input {
+      width: 64px; text-align: center; font-variant-numeric: tabular-nums;
+    }
+    .gen-result {
+      margin-top: 8px; font-size: 12px; color: var(--muted); min-height: 16px;
+    }
+    .gen-result.err { color: var(--bad); }
+    .gen-result.ok  { color: var(--ok); }
+
+    /* Cards are clickable for preview — but only when there is something to preview. */
+    .card.clickable { cursor: pointer; }
+    .card.clickable:hover { border-color: var(--accent); }
+
+    /* --- Preview modal --- */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(4, 8, 16, .72);
+      display: none; align-items: center; justify-content: center; z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      width: min(1000px, 94vw); max-height: 92vh; display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      overflow: hidden;
+    }
+    @media (max-width: 820px) { .modal { grid-template-columns: 1fr; } }
+    .modal-video {
+      background: #000; display: flex; align-items: center; justify-content: center;
+      min-height: 320px;
+    }
+    .modal-video video { width: 100%; max-height: 80vh; display: block; background: #000; }
+    .modal-video .no-video {
+      color: var(--muted); font-size: 12px; padding: 24px; text-align: center;
+    }
+    .modal-body { display: flex; flex-direction: column; min-height: 0; }
+    .modal-header {
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .modal-header .title { font-weight: 600; font-size: 15px; flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .modal-close {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      width: 30px; height: 30px; padding: 0; border-radius: 6px; cursor: pointer;
+      font-size: 16px; font-weight: 400;
+    }
+    .modal-close:hover { color: var(--text); border-color: var(--text); }
+    .modal-scroll {
+      padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+    }
+    .modal-section h4 {
+      margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted);
+    }
+    .script-block {
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 12px; font-size: 13px; line-height: 1.55;
+    }
+    .script-block .lbl {
+      display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      color: var(--accent); margin-right: 6px; text-transform: uppercase;
+    }
+    .script-block + .script-block { margin-top: 6px; }
+    .full-post {
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .full-post + .full-post { margin-top: 8px; }
+    .full-post .plat { color: var(--accent); font-weight: 700; font-size: 11px; letter-spacing: .05em; margin-bottom: 6px; }
+    .full-post .cap { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+    .full-post .cta { font-size: 12px; color: var(--warn); margin-top: 6px; }
+    .full-post .tags { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .modal-footer {
+      border-top: 1px solid var(--border); padding: 12px 16px;
+      display: flex; gap: 8px;
+    }
+    .modal-footer button { flex: 1; padding: 10px; font-size: 13px; }
+
+    /* Viral Playbook card — compact, informational. Sits in the sidebar. */
+    .vp-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin: -2px 0 8px;
+    }
+    .vp-persona-tabs { display: flex; gap: 4px; }
+    .vp-tab {
+      font-size: 11px; padding: 4px 8px; border-radius: 5px; cursor: pointer;
+      background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+      font-weight: 600; letter-spacing: .04em;
+    }
+    .vp-tab.active { color: var(--text); border-color: var(--accent); background: rgba(110, 168, 255, 0.08); }
+    .vp-refresh {
+      font-size: 11px; padding: 4px 8px; background: var(--panel-2); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 5px; cursor: pointer;
+    }
+    .vp-refresh:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+    .vp-refresh:disabled { opacity: 0.5; cursor: wait; }
+    .vp-meta {
+      font-size: 11px; color: var(--muted); margin-bottom: 8px;
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .vp-meta .vp-age { color: var(--accent); }
+    .vp-empty { font-size: 12px; color: var(--muted); padding: 14px 0; text-align: center; }
+    .vp-summary {
+      background: var(--panel-2); border-left: 2px solid var(--accent);
+      padding: 8px 10px; border-radius: 4px; font-size: 12px; line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .vp-section { margin-bottom: 10px; }
+    .vp-section:last-child { margin-bottom: 0; }
+    .vp-section h4 {
+      margin: 0 0 5px; font-size: 10px; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted);
+    }
+    .vp-hook {
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px;
+      padding: 6px 8px; margin-bottom: 5px; font-size: 12px; line-height: 1.45;
+    }
+    .vp-hook .vp-hook-pattern { font-weight: 600; color: var(--text); }
+    .vp-hook .vp-hook-ex { color: var(--muted); font-style: italic; margin-top: 3px; display: block; }
+    .vp-chip {
+      display: inline-block; font-size: 11px; padding: 3px 7px; margin: 2px 4px 2px 0;
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text);
+    }
+    .vp-avoid .vp-chip { border-color: rgba(239, 83, 80, 0.35); color: #ff9999; }
+    .vp-pacing {
+      font-size: 12px; color: var(--text); line-height: 1.5;
+      background: var(--panel-2); padding: 6px 8px; border-radius: 4px;
+    }
+    .vp-length {
+      font-size: 12px; color: var(--text);
+      background: var(--panel-2); padding: 6px 8px; border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Posting schedule card */
+    .sched-meta { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+    .sched-meta code {
+      background: var(--panel-2); padding: 1px 5px; border-radius: 3px;
+      color: var(--text); font-size: 11px;
+    }
+    .sched-list { display: flex; flex-direction: column; gap: 4px; }
+    .sched-slot {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 7px 9px; font-size: 12px;
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px;
+    }
+    .sched-slot.taken { border-left: 3px solid var(--accent); }
+    .sched-slot.open  { border-left: 3px solid var(--border); color: var(--muted); }
+    .sched-slot .sched-when { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .sched-slot .sched-what { flex: 1; margin: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sched-slot .sched-persona {
+      font-size: 10px; font-weight: 700; letter-spacing: .05em;
+      padding: 2px 6px; border-radius: 3px; background: rgba(110, 168, 255, 0.12); color: var(--accent);
+    }
+    .sched-slot.open .sched-what { font-style: italic; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CFO Content Engine <small>lifecycle monitor</small></h1>
+    <div class="mode">
+      <span id="mode-pill" class="auto-pill off">APPROVAL</span>
+      <span class="lbl" id="lbl-manual">Manual</span>
+      <div id="auto-switch" class="switch" role="switch" aria-checked="false" tabindex="0" title="Toggle Full Auto"></div>
+      <span class="lbl" id="lbl-auto">Full Auto</span>
+    </div>
+    <span id="status" class="pill"><span class="dot"></span><span id="status-text">connecting…</span></span>
+  </header>
+
+  <main>
+    <section>
+      <div class="panel" style="margin-bottom:12px">
+        <h3>Pipeline totals</h3>
+        <div class="counts" id="counts"></div>
+      </div>
+      <div class="board" id="board"></div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h3>Production</h3>
+
+        <div class="prod-row">
+          <div>
+            <div class="label">Production mode</div>
+            <div class="sub" id="prod-sub">Off — researcher is paused</div>
+          </div>
+          <div id="prod-switch" class="switch" role="switch" aria-checked="false" tabindex="0" title="Toggle auto-generation"></div>
+        </div>
+
+        <div class="prod-row">
+          <div>
+            <div class="label">In-flight cap</div>
+            <div class="sub">Researcher pauses at this many live cards</div>
+          </div>
+          <input id="cap-input" class="cap-input" type="number" min="1" max="50" step="1" value="5" />
+        </div>
+
+        <div class="prod-row">
+          <div>
+            <div class="label">Live in pipeline</div>
+            <div class="sub">Not yet Published or Rejected</div>
+          </div>
+          <div id="prod-meter" class="prod-meter">0 / 5</div>
+        </div>
+
+        <div class="gen-one">
+          <select id="gen-persona" required>
+            <option value="BUILDER">BUILDER</option>
+            <option value="SELLER">SELLER</option>
+          </select>
+          <button type="button" id="gen-one-btn">Generate 1 Test Post</button>
+        </div>
+        <div class="gen-result" id="gen-result"></div>
+      </div>
+
+      <div class="panel">
+        <div class="vp-head">
+          <h3 style="margin:0">Posting schedule</h3>
+          <span id="sched-status" class="sched-meta" style="margin:0"></span>
+        </div>
+        <div class="sched-meta" id="sched-meta"></div>
+        <div class="sched-list" id="sched-list">
+          <div class="vp-empty">loading…</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Seed a new idea</h3>
+        <form class="new-idea" id="new-idea">
+          <select name="target_persona" required>
+            <option value="BUILDER">BUILDER</option>
+            <option value="SELLER">SELLER</option>
+          </select>
+          <input name="topic" placeholder="Topic (e.g. 'SaaS gross margin math')" required />
+          <button type="submit">Add</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="vp-head">
+          <h3 style="margin:0">This week's viral playbook</h3>
+          <button type="button" class="vp-refresh" id="vp-refresh" title="Re-run teardown now">Refresh</button>
+        </div>
+        <div class="vp-persona-tabs" id="vp-tabs" style="margin-bottom:10px">
+          <div class="vp-tab active" data-persona="BUILDER">BUILDER</div>
+          <div class="vp-tab" data-persona="SELLER">SELLER</div>
+        </div>
+        <div id="vp-body">
+          <div class="vp-empty">loading…</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Live activity</h3>
+        <div class="activity" id="activity"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Preview modal: full video + script + per-platform posts -->
+  <div id="modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-video" id="modal-video"></div>
+      <div class="modal-body">
+        <div class="modal-header">
+          <div class="title" id="modal-title">—</div>
+          <button class="modal-close" id="modal-close" title="Close (Esc)">✕</button>
+        </div>
+        <div class="modal-scroll" id="modal-scroll"></div>
+        <div class="modal-footer" id="modal-footer"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-stack"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const STATUSES = ['Idea','Scripted','Audio_Generated','Images_Generated','Rendered','Pending_Approval','Published'];
+    const boardEl    = document.getElementById('board');
+    const countsEl   = document.getElementById('counts');
+    const activityEl = document.getElementById('activity');
+    const statusEl   = document.getElementById('status');
+    const statusTxt  = document.getElementById('status-text');
+
+    // Full row data cached by id — used by the preview modal so we don't need
+    // to re-fetch the video from the server when the operator clicks a card.
+    const videosById = new Map();
+    // A card is "previewable" if it has a rendered video OR platform posts OR a script.
+    function hasPreview(v) {
+      return !!(v && (v.video_path || v.platform_posts || v.script_json));
+    }
+
+    // Build columns once.
+    for (const s of STATUSES) {
+      const col = document.createElement('div');
+      col.className = 'col';
+      col.innerHTML = `
+        <h2>${s.replace(/_/g,' ')} <span class="count" data-count="${s}">0</span></h2>
+        <div class="cards" data-cards="${s}"></div>
+      `;
+      boardEl.appendChild(col);
+
+      const c = document.createElement('div');
+      c.className = 'c';
+      c.innerHTML = `<div class="n" data-n="${s}">0</div><div class="l">${s.replace(/_/g,' ')}</div>`;
+      countsEl.appendChild(c);
+    }
+
+    function escHtml(s) {
+      return String(s ?? '').replace(/[<>&"']/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function safeParse(s) { try { return typeof s === 'string' ? JSON.parse(s) : s; } catch { return null; } }
+
+    // Non-blocking notifications — used when an advance hits a cooldown
+    // (API temporarily overloaded, auto-retry scheduled). Replaces the old
+    // blocking alert() that was showing up every few minutes.
+    function showToast(msg, { ttl = 6000 } = {}) {
+      const stack = document.getElementById('toast-stack');
+      if (!stack) return;
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      stack.appendChild(el);
+      // Reflow then add .show so the CSS transition fires.
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 300);
+      }, ttl);
+    }
+
+    function postsHtml(v) {
+      const posts = safeParse(v.platform_posts);
+      if (!posts || typeof posts !== 'object') return '';
+      const parts = [];
+      for (const [plat, p] of Object.entries(posts)) {
+        if (!p) continue;
+        const cap = escHtml(String(p.caption || '').slice(0, 140));
+        const tags = Array.isArray(p.hashtags) ? p.hashtags.slice(0, 8).map(escHtml).join(' ') : '';
+        parts.push(`
+          <div class="post">
+            <div class="plat">${escHtml(plat)}</div>
+            <div class="cap">${cap}</div>
+            ${tags ? `<div class="tags">${tags}</div>` : ''}
+          </div>`);
+      }
+      return parts.length ? `<div class="posts">${parts.join('')}</div>` : '';
+    }
+
+    // What the next button should say for each mid-pipeline status. Pairs
+    // with the server's /api/videos/:id/advance endpoint which dispatches
+    // to the matching stage runner (scripter, TTS, image gen, render, package).
+    const ADVANCE_LABELS = {
+      Idea:             'Write script ▸',
+      Scripted:         'Generate audio ▸',
+      Audio_Generated:  'Generate images ▸',
+      Images_Generated: 'Render video ▸',
+      Rendered:         'Package posts ▸',
+    };
+
+    function cardHTML(v) {
+      const persona = (v.target_persona || '').toLowerCase();
+      const safeTopic = escHtml(v.topic);
+      const isPending = v.status === 'Pending_Approval';
+      const clickable = hasPreview(v);
+      const approvalActions = isPending ? `
+            <button class="btn-approve" data-action="approve" data-id="${v.id}" title="Approve without notes (fast)">Approve</button>
+            <button class="btn-winner"  data-action="winner"  data-id="${v.id}" title="★ Approve and flag what worked — Claude learns from this">★ Winner</button>
+            <button class="btn-reject ghost" data-action="reject" data-id="${v.id}">Reject</button>` : '';
+      const advanceLabel = ADVANCE_LABELS[v.status];
+      const advanceAction = advanceLabel ? `
+            <button class="btn-advance" data-action="advance" data-id="${v.id}"
+                    title="Run the next pipeline stage for this row right now">${advanceLabel}</button>` : '';
+
+      // Copy landing URL appears once a script exists (landing_slug is in
+      // script_json). Lets the operator paste salisburybookkeeping.com/go/{slug}
+      // as the first/pinned comment on IG/TikTok/YouTube Shorts.
+      const hasScript = !!v.script_json;
+      const copyLanding = hasScript ? `
+            <button class="btn-copy" data-action="copy-landing" data-id="${v.id}"
+                    title="Copy the Salisbury /go/ landing URL to paste as the first comment">Copy URL</button>` : '';
+      const hint = clickable ? `<span style="color:var(--accent);font-size:11px">· click to preview</span>` : '';
+
+      // Cooldown badge — the engine set cooldown_until after a transient
+      // error (503/429/timeout). We show remaining time so the operator
+      // knows the row isn't stuck, just waiting out a Gemini blip.
+      const cooldownUntil = v.cooldown_until ? new Date(v.cooldown_until) : null;
+      const now = new Date();
+      let cooldownBadge = '';
+      if (cooldownUntil && cooldownUntil > now) {
+        const secsLeft = Math.round((cooldownUntil - now) / 1000);
+        const mins = Math.floor(secsLeft / 60);
+        const label = mins > 0 ? `${mins}m ${secsLeft % 60}s` : `${secsLeft}s`;
+        const tooltip = v.last_transient_error
+          ? `Transient error #${v.transient_fail_count || 1}: ${v.last_transient_error.replace(/"/g, '&quot;').slice(0, 160)}`
+          : `Waiting out a transient error (attempt ${v.transient_fail_count || 1})`;
+        cooldownBadge = `<span class="cooldown-badge" title="${tooltip}">⏳ retry in ${label}</span>`;
+      }
+
+      return `
+        <div class="card ${isPending ? 'approval' : ''} ${clickable ? 'clickable' : ''} ${cooldownBadge ? 'cooldown' : ''}" data-id="${v.id}">
+          <div class="topic">#${v.id} · ${safeTopic}</div>
+          <div class="meta">
+            <span class="tag ${persona}">${v.target_persona}</span>
+            <span>updated ${new Date((v.updated_at || v.created_at) + 'Z').toLocaleTimeString()}</span>
+            ${hint}
+            ${cooldownBadge}
+          </div>
+          ${isPending ? postsHtml(v) : ''}
+          <div class="actions">
+            ${approvalActions}
+            ${advanceAction}
+            ${copyLanding}
+            <button class="btn-delete ghost" data-action="delete" data-id="${v.id}" title="Delete &amp; never suggest again">✕</button>
+          </div>
+        </div>`;
+    }
+
+    function render(videos, counts) {
+      // Reset the id cache on a full render so deleted rows don't linger.
+      videosById.clear();
+      for (const v of videos) videosById.set(v.id, v);
+      // clear columns
+      for (const s of STATUSES) {
+        document.querySelector(`[data-cards="${s}"]`).innerHTML = '';
+      }
+      for (const v of videos) {
+        const col = document.querySelector(`[data-cards="${v.status}"]`);
+        if (col) col.insertAdjacentHTML('beforeend', cardHTML(v));
+      }
+      for (const s of STATUSES) {
+        const col = document.querySelector(`[data-cards="${s}"]`);
+        if (col && !col.children.length) col.innerHTML = `<div class="empty">— empty —</div>`;
+      }
+      updateCounts(counts);
+    }
+
+    function updateCounts(counts) {
+      if (!counts) return;
+      for (const s of STATUSES) {
+        const n = counts[s] ?? 0;
+        const a = document.querySelector(`[data-count="${s}"]`);
+        const b = document.querySelector(`[data-n="${s}"]`);
+        if (a) a.textContent = n;
+        if (b) b.textContent = n;
+      }
+    }
+
+    function applyChange(evt) {
+      // Keep the id-cache in sync so the modal can read fresh data.
+      if (evt.kind === 'delete' || evt.row._deleted) {
+        videosById.delete(evt.row.id);
+      } else {
+        videosById.set(evt.row.id, evt.row);
+        // If the modal is currently open for this row, refresh its contents.
+        if (modalOpenId === evt.row.id) openPostModal(evt.row.id);
+      }
+
+      // Remove any existing card for this id.
+      const existing = document.querySelector(`.card[data-id="${evt.row.id}"]`);
+      if (existing) existing.remove();
+
+      // If this was a delete, just clean up empty columns and stop.
+      if (evt.kind === 'delete' || evt.row._deleted) {
+        if (modalOpenId === evt.row.id) closePostModal();
+        for (const s of STATUSES) {
+          const c = document.querySelector(`[data-cards="${s}"]`);
+          if (c && !c.children.length) c.innerHTML = `<div class="empty">— empty —</div>`;
+        }
+        return;
+      }
+
+      // Insert into the new column.
+      const col = document.querySelector(`[data-cards="${evt.row.status}"]`);
+      if (!col) return;
+      const empty = col.querySelector('.empty');
+      if (empty) empty.remove();
+
+      const tmp = document.createElement('div');
+      tmp.innerHTML = cardHTML(evt.row);
+      const node = tmp.firstElementChild;
+      node.classList.add('flash');
+      col.prepend(node);
+
+      // Re-render "empty" placeholders on columns we may have drained.
+      for (const s of STATUSES) {
+        const c = document.querySelector(`[data-cards="${s}"]`);
+        if (c && !c.children.length) c.innerHTML = `<div class="empty">— empty —</div>`;
+      }
+    }
+
+    function logActivity(entry) {
+      const t = new Date(entry.at).toLocaleTimeString();
+      const verb = entry.kind === 'insert'
+        ? `<b>new idea</b> queued`
+        : entry.kind === 'delete'
+        ? `<b>deleted</b> (won't suggest again)`
+        : `moved to <b>${entry.row.status.replace(/_/g,' ')}</b>`;
+      const el = document.createElement('div');
+      el.className = 'log';
+      el.innerHTML = `<time>${t}</time><div class="msg">#${entry.row.id} ${verb} — ${String(entry.row.topic).slice(0,80)}</div>`;
+      activityEl.prepend(el);
+      while (activityEl.children.length > 200) activityEl.lastElementChild.remove();
+    }
+
+    // --- socket.io wiring ---
+    const socket = io();
+
+    socket.on('connect', () => {
+      statusEl.classList.add('live');
+      statusTxt.textContent = 'live';
+    });
+    socket.on('disconnect', () => {
+      statusEl.classList.remove('live');
+      statusTxt.textContent = 'disconnected';
+    });
+
+    socket.on('snapshot', ({ videos, counts, activity, settings }) => {
+      render(videos, counts);
+      activityEl.innerHTML = '';
+      (activity || []).slice().reverse().forEach(logActivity);
+      if (settings) applySettings(settings);
+    });
+
+    socket.on('change', (entry) => {
+      applyChange(entry);
+      logActivity(entry);
+    });
+
+    socket.on('counts', updateCounts);
+    socket.on('settings', applySettings);
+
+    // --- Full Auto toggle ---
+    const autoSwitch = document.getElementById('auto-switch');
+    const modePill   = document.getElementById('mode-pill');
+    const lblManual  = document.getElementById('lbl-manual');
+    const lblAuto    = document.getElementById('lbl-auto');
+    let approvalRequired = true; // default until snapshot arrives
+
+    // --- Production controls ---
+    const prodSwitch = document.getElementById('prod-switch');
+    const prodSub    = document.getElementById('prod-sub');
+    const prodMeter  = document.getElementById('prod-meter');
+    const capInput   = document.getElementById('cap-input');
+    let generationEnabled = false;
+    let maxInFlight = 5;
+    let capEditing = false; // don't clobber the input while user is typing
+
+    function applySettings(s) {
+      if (!s) return;
+      approvalRequired = !!s.approval_required;
+      autoSwitch.classList.toggle('on', !approvalRequired);
+      autoSwitch.setAttribute('aria-checked', String(!approvalRequired));
+      if (approvalRequired) {
+        modePill.textContent = 'APPROVAL';
+        modePill.classList.add('off');
+        lblManual.classList.add('active');
+        lblAuto.classList.remove('active');
+      } else {
+        modePill.textContent = 'FULL AUTO';
+        modePill.classList.remove('off');
+        lblManual.classList.remove('active');
+        lblAuto.classList.add('active');
+      }
+
+      // Production state
+      generationEnabled = !!s.generation_enabled;
+      maxInFlight = Number(s.max_in_flight) || 5;
+      const inFlight = Number(s.in_flight) || 0;
+      prodSwitch.classList.toggle('on', generationEnabled);
+      prodSwitch.setAttribute('aria-checked', String(generationEnabled));
+      prodSub.textContent = generationEnabled
+        ? `On — researcher auto-fills up to ${maxInFlight}`
+        : 'Off — researcher is paused';
+      prodMeter.textContent = `${inFlight} / ${maxInFlight}`;
+      prodMeter.classList.toggle('full', inFlight >= maxInFlight);
+      if (!capEditing) capInput.value = String(maxInFlight);
+    }
+
+    async function toggleApproval() {
+      const next = !approvalRequired; // flip required flag
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ approval_required: !next ? false : true }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        // Optimistic: server will also broadcast a 'settings' event
+        applySettings(await res.json());
+      } catch (err) {
+        alert('Failed to toggle: ' + err.message);
+      }
+    }
+
+    autoSwitch.addEventListener('click', toggleApproval);
+    autoSwitch.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleApproval(); }
+    });
+
+    // --- Production mode toggle ---
+    async function toggleProduction() {
+      const next = !generationEnabled;
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ generation_enabled: next }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        applySettings(await res.json());
+      } catch (err) {
+        alert('Failed to toggle production: ' + err.message);
+      }
+    }
+    prodSwitch.addEventListener('click', toggleProduction);
+    prodSwitch.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleProduction(); }
+    });
+
+    // --- In-flight cap edit ---
+    capInput.addEventListener('focus', () => { capEditing = true; });
+    capInput.addEventListener('blur', async () => {
+      capEditing = false;
+      const v = Math.max(1, Math.min(50, Number(capInput.value) | 0));
+      capInput.value = String(v);
+      if (v === maxInFlight) return;
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ max_in_flight: v }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        applySettings(await res.json());
+      } catch (err) {
+        alert('Failed to set cap: ' + err.message);
+        capInput.value = String(maxInFlight);
+      }
+    });
+    capInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); capInput.blur(); }
+    });
+
+    // --- Generate 1 Test Post ---
+    const genBtn    = document.getElementById('gen-one-btn');
+    const genPers   = document.getElementById('gen-persona');
+    const genResult = document.getElementById('gen-result');
+    genBtn.addEventListener('click', async () => {
+      genBtn.disabled = true;
+      const prevLabel = genBtn.textContent;
+      genBtn.textContent = 'Researching…';
+      genResult.className = 'gen-result';
+      genResult.textContent = '';
+      try {
+        const res = await fetch('/api/generate-one', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ target_persona: genPers.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        genResult.classList.add('ok');
+        genResult.textContent = `✓ Inserted #${data.inserted.id}: ${String(data.inserted.topic).slice(0, 80)}`;
+      } catch (err) {
+        genResult.classList.add('err');
+        genResult.textContent = 'Failed: ' + err.message;
+      } finally {
+        genBtn.disabled = false;
+        genBtn.textContent = prevLabel;
+      }
+    });
+
+    // --- Preview modal ---
+    const modalEl    = document.getElementById('modal');
+    const modalVideo = document.getElementById('modal-video');
+    const modalTitle = document.getElementById('modal-title');
+    const modalScroll = document.getElementById('modal-scroll');
+    const modalFooter = document.getElementById('modal-footer');
+    const modalCloseBtn = document.getElementById('modal-close');
+    let modalOpenId = null;
+
+    function scriptSectionHTML(v) {
+      const s = safeParse(v.script_json);
+      if (!s || typeof s !== 'object') return '';
+      const rows = [];
+      if (s.hook)           rows.push(`<div class="script-block"><span class="lbl">Hook</span>${escHtml(s.hook)}</div>`);
+      if (s.body_text)      rows.push(`<div class="script-block"><span class="lbl">Body</span>${escHtml(s.body_text)}</div>`);
+      if (s.call_to_action) rows.push(`<div class="script-block"><span class="lbl">CTA</span>${escHtml(s.call_to_action)}</div>`);
+      if (!rows.length) return '';
+      return `<div class="modal-section"><h4>Spoken script</h4>${rows.join('')}</div>`;
+    }
+
+    function fullPostsHTML(v) {
+      const posts = safeParse(v.platform_posts);
+      if (!posts || typeof posts !== 'object' || !Object.keys(posts).length) {
+        return `<div class="modal-section"><h4>Platform posts</h4>
+          <div class="empty" style="text-align:left;padding:0">
+            Not packaged yet — captions and hashtags are written after render.
+          </div></div>`;
+      }
+      const parts = [];
+      for (const [plat, p] of Object.entries(posts)) {
+        if (!p) continue;
+        const cap  = escHtml(String(p.caption || ''));
+        const cta  = p.cta ? `<div class="cta">→ ${escHtml(p.cta)}</div>` : '';
+        const tags = Array.isArray(p.hashtags) && p.hashtags.length
+          ? `<div class="tags">${p.hashtags.map(escHtml).join(' ')}</div>` : '';
+        parts.push(`
+          <div class="full-post">
+            <div class="plat">${escHtml(plat)}</div>
+            <div class="cap">${cap}</div>
+            ${cta}${tags}
+          </div>`);
+      }
+      return `<div class="modal-section"><h4>Platform posts</h4>${parts.join('')}</div>`;
+    }
+
+    function videoPaneHTML(v) {
+      // The server exposes /media → ./output, so a file at
+      // output/video/<id>.mp4 is reachable at /media/video/<id>.mp4.
+      if (v.video_path) {
+        const url = `/media/video/${v.id}.mp4`;
+        return `<video src="${url}" controls playsinline preload="metadata"></video>`;
+      }
+      return `<div class="no-video">No video yet — render hasn't finished for #${v.id}.</div>`;
+    }
+
+    function openPostModal(id) {
+      const v = videosById.get(id);
+      if (!v) return;
+      modalOpenId = id;
+      modalTitle.textContent = `#${v.id} · ${v.topic}`;
+      modalVideo.innerHTML = videoPaneHTML(v);
+      modalScroll.innerHTML = scriptSectionHTML(v) + fullPostsHTML(v);
+
+      // Approve/Reject at the bottom of the modal for Pending_Approval rows.
+      if (v.status === 'Pending_Approval') {
+        modalFooter.innerHTML = `
+          <button class="btn-approve" data-action="approve" data-id="${v.id}">Approve &amp; publish</button>
+          <button class="btn-reject ghost" data-action="reject" data-id="${v.id}">Reject</button>`;
+        modalFooter.style.display = 'flex';
+      } else {
+        modalFooter.innerHTML = '';
+        modalFooter.style.display = 'none';
+      }
+      modalEl.classList.add('open');
+      modalEl.setAttribute('aria-hidden', 'false');
+    }
+
+    function closePostModal() {
+      modalOpenId = null;
+      modalEl.classList.remove('open');
+      modalEl.setAttribute('aria-hidden', 'true');
+      // Stop playback by removing the <video> element.
+      modalVideo.innerHTML = '';
+      modalScroll.innerHTML = '';
+      modalFooter.innerHTML = '';
+    }
+
+    modalCloseBtn.addEventListener('click', closePostModal);
+    modalEl.addEventListener('click', (e) => { if (e.target === modalEl) closePostModal(); });
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpenId != null) closePostModal(); });
+
+    // Clicking anywhere on a card (other than a button) opens the preview.
+    boardEl.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const card = e.target.closest('.card.clickable');
+      if (!card) return;
+      const id = Number(card.dataset.id);
+      if (Number.isFinite(id)) openPostModal(id);
+    });
+
+    // --- Approve / Reject / Delete / Advance (event delegation on the board) ---
+    // Also handles clicks on the modal's footer buttons.
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      // Only handle buttons inside the board or the modal.
+      if (!btn.closest('#board') && !btn.closest('#modal')) return;
+      // Stop the click from falling through to the card-click preview opener.
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      if (!id || !action) return;
+
+      // Delete uses DELETE method; approve/reject/advance use POST.
+      if (action === 'delete') {
+        if (!confirm(`Delete #${id}? The topic will be blacklisted from future suggestions.`)) return;
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/api/videos/${id}`, {
+            method: 'DELETE',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ reason: 'operator deleted from dashboard' }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        } catch (err) {
+          alert(`Failed to delete #${id}: ${err.message}`);
+          btn.disabled = false;
+        }
+        return;
+      }
+
+      // Copy landing URL — pull the salisburybookkeeping.com/go/{slug}
+      // URL for this row from the server, then write it to the clipboard
+      // so the operator can paste it as the first/pinned comment on a post.
+      if (action === 'copy-landing') {
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/api/videos/${id}/landing`);
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.landing_url) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          await navigator.clipboard.writeText(data.landing_url);
+          btn.classList.add('copied');
+          btn.innerHTML = '✓ Copied';
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+          }, 1500);
+        } catch (err) {
+          alert(`Failed to copy URL for #${id}: ${err.message}`);
+          btn.disabled = false;
+          btn.innerHTML = originalHTML;
+        }
+        return;
+      }
+
+      // Advance shows a spinner — some stages take 30-60s (TTS, image gen).
+      // Server responds only after the stage completes. The row will move
+      // columns via the Socket.IO 'change' event when the stage updates the DB.
+      if (action === 'advance') {
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spin" aria-hidden="true"></span>running…`;
+        try {
+          const res = await fetch(`/api/videos/${id}/advance`, { method: 'POST' });
+          const data = await res.json().catch(() => ({}));
+          // 202 = transient (API cooled-down, auto-retry scheduled). Not a
+          // failure — the cooldown badge will render on the card via socket.
+          if (res.status === 202 && data.transient) {
+            showToast(data.message || `#${id} backed off — retrying in ${data.cooldown_seconds}s`);
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            return;
+          }
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        } catch (err) {
+          // Only HARD failures (auth, validation, missing row) block-alert now.
+          alert(`Failed to advance #${id}: ${err.message}`);
+          btn.disabled = false;
+          btn.innerHTML = originalHTML;
+        }
+        // On success, the incoming 'change' socket event will re-render the
+        // card in its new column — no need to restore button state.
+        return;
+      }
+
+      const fromModal = !!btn.closest('#modal');
+
+      // Winner: approve + capture what worked. Structured feedback flows
+      // into the creative agent's system prompt on future script gens so
+      // Claude leans into the winning patterns. Plain "approve" (below)
+      // stays one-click for the fast-path.
+      if (action === 'winner') {
+        const payload = await promptApprovalReason(id);
+        if (!payload) { btn.disabled = false; return; }
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/api/videos/${id}/approve`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          if (fromModal) closePostModal();
+        } catch (err) {
+          alert(`Failed to approve #${id}: ${err.message}`);
+          btn.disabled = false;
+        }
+        return;
+      }
+
+      // Reject: open a reason-capture modal instead of firing immediately.
+      // The reason + optional note flow back into the creative agent's
+      // system prompt on future script gens, so it learns what this
+      // operator doesn't want.
+      if (action === 'reject') {
+        const payload = await promptRejectionReason(id);
+        if (!payload) {
+          btn.disabled = false; // user cancelled
+          return;
+        }
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/api/videos/${id}/reject`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          if (fromModal) closePostModal();
+        } catch (err) {
+          alert(`Failed to reject #${id}: ${err.message}`);
+          btn.disabled = false;
+        }
+        return;
+      }
+
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/videos/${id}/${action}`, { method: 'POST' });
+        if (!res.ok) throw new Error(await res.text());
+        // If the action was taken from the modal, close it so the operator
+        // can immediately see the next pending card.
+        if (fromModal) closePostModal();
+      } catch (err) {
+        alert(`Failed to ${action} #${id}: ${err.message}`);
+        btn.disabled = false;
+      }
+    });
+
+    // -----------------------------------------------------------------
+    // Rejection-reason picker.
+    //
+    // Renders a lightweight modal over the backdrop with clickable reason
+    // tags + an optional note textarea. Returns a promise that resolves
+    // with { reason, note } on Submit, or null if the user hit Cancel /
+    // Escape / backdrop.
+    //
+    // Tags mirror engine_videos.rejection_reason taxonomy. The backend
+    // validates — this is purely UX.
+    // -----------------------------------------------------------------
+    const REJECTION_REASONS = [
+      { tag: 'weak_hook',     label: 'Weak hook',     hint: 'first 2s didn\'t grab' },
+      { tag: 'wrong_tone',    label: 'Wrong tone',    hint: 'corporate / flat / preachy' },
+      { tag: 'bad_cta',       label: 'Bad CTA',       hint: 'missing offer, confusing, or off-formula' },
+      { tag: 'off_brand',     label: 'Off-brand',     hint: 'doesn\'t sound like us' },
+      { tag: 'off_topic',     label: 'Off-topic',     hint: 'diverged from the subject' },
+      { tag: 'bad_visuals',   label: 'Bad visuals',   hint: 'wrong world / generic' },
+      { tag: 'factual_issue', label: 'Factual issue', hint: 'incorrect claim or number' },
+      { tag: 'too_long',      label: 'Too long',      hint: 'over the 45-55s sweet spot' },
+      { tag: 'too_short',     label: 'Too short',     hint: 'ended abruptly' },
+      { tag: 'other',         label: 'Other',         hint: 'see note' },
+    ];
+
+    const APPROVAL_REASONS = [
+      { tag: 'strong_hook',      label: 'Strong hook',      hint: 'first 2s grabbed hard' },
+      { tag: 'great_tone',       label: 'Great tone',       hint: 'voice / energy / smile was right' },
+      { tag: 'great_cta',        label: 'Great CTA',        hint: 'offer + format landed' },
+      { tag: 'on_brand',         label: 'On-brand',         hint: 'sounds like us' },
+      { tag: 'tight_pacing',     label: 'Tight pacing',     hint: 'length / rhythm felt right' },
+      { tag: 'great_visuals',    label: 'Great visuals',    hint: 'scenes matched script' },
+      { tag: 'sharp_numbers',    label: 'Sharp numbers',    hint: 'specific, credible figures' },
+      { tag: 'great_framework',  label: 'Great framework',  hint: 'named framework stuck' },
+      { tag: 'other',            label: 'Other',            hint: 'see note' },
+    ];
+
+    function promptRejectionReason(id) { return promptFeedbackReason({ id, kind: 'rejection' }); }
+    function promptApprovalReason(id)  { return promptFeedbackReason({ id, kind: 'approval'  }); }
+
+    // Unified feedback-capture modal, used for both ★ Winner and Reject.
+    // Keeps rendering + keyboard + submit logic in one place; the only
+    // differences between the two flows are copy, taxonomy, and accent color.
+    function promptFeedbackReason({ id, kind }) {
+      const isApproval = kind === 'approval';
+      const tags  = isApproval ? APPROVAL_REASONS  : REJECTION_REASONS;
+      const title = isApproval
+        ? `★ What worked about #${id}?`
+        : `Why are you rejecting #${id}?`;
+      const sub = isApproval
+        ? 'Claude uses this to lean into the winning patterns on future scripts.'
+        : 'Claude uses this to avoid the same issues on future scripts.';
+      const submitLabel = isApproval ? '★ Approve' : 'Reject';
+      const placeholder = isApproval
+        ? 'e.g. Hook was punchy and specific. Or: the named framework ("3-minute margin check") was memorable.'
+        : 'e.g. Hook sounded like a LinkedIn post. Or: visuals showed a factory floor, should have shown a jobsite.';
+      const modalClass = isApproval ? 'rej-modal approve-mode' : 'rej-modal';
+      const submitClass = isApproval ? 'rej-submit approve-submit' : 'rej-submit';
+
+      return new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'rej-backdrop';
+        backdrop.innerHTML = `
+          <div class="${modalClass}" role="dialog" aria-label="${isApproval ? 'Approval reason' : 'Rejection reason'}">
+            <div class="rej-header">
+              <div class="rej-title">${title}</div>
+              <div class="rej-sub">${sub}</div>
+            </div>
+            <div class="rej-tags">
+              ${tags.map((r) => `
+                <button type="button" class="rej-tag" data-tag="${r.tag}" title="${escHtml(r.hint)}">
+                  ${escHtml(r.label)}
+                </button>
+              `).join('')}
+            </div>
+            <div class="rej-note-wrap">
+              <label class="rej-note-label" for="rej-note">Optional — one sentence on ${isApproval ? 'what worked' : 'what was wrong'}:</label>
+              <textarea id="rej-note" class="rej-note" maxlength="500" rows="3"
+                placeholder="${escHtml(placeholder)}"></textarea>
+            </div>
+            <div class="rej-actions">
+              <button type="button" class="rej-cancel">Cancel</button>
+              <button type="button" class="${submitClass}" disabled>${submitLabel}</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(backdrop);
+        const modal  = backdrop.querySelector('.rej-modal');
+        const note   = backdrop.querySelector('#rej-note');
+        const submit = backdrop.querySelector(isApproval ? '.approve-submit' : '.rej-submit');
+        const cancel = backdrop.querySelector('.rej-cancel');
+        let selectedTag = null;
+
+        function close(result) {
+          document.removeEventListener('keydown', onKey);
+          backdrop.remove();
+          resolve(result);
+        }
+        function onKey(e) { if (e.key === 'Escape') close(null); }
+        document.addEventListener('keydown', onKey);
+
+        backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(null); });
+        cancel.addEventListener('click', () => close(null));
+
+        backdrop.querySelectorAll('.rej-tag').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            backdrop.querySelectorAll('.rej-tag').forEach((b) => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedTag = btn.dataset.tag;
+            submit.disabled = false;
+          });
+        });
+
+        submit.addEventListener('click', () => {
+          if (!selectedTag) return;
+          close({ reason: selectedTag, note: note.value.trim() || undefined });
+        });
+
+        // Focus the textarea after a frame so CSS transitions don't steal focus.
+        requestAnimationFrame(() => modal.classList.add('show'));
+      });
+    }
+
+    // --- new idea form ---
+    document.getElementById('new-idea').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const payload = {
+        target_persona: fd.get('target_persona'),
+        topic: (fd.get('topic') || '').toString().trim(),
+      };
+      if (!payload.topic) return;
+      const res = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) e.target.reset();
+      else alert('Failed: ' + (await res.text()));
+    });
+
+    // --- Viral Playbook card ---
+    // One fetch to /api/viral-playbook returns {BUILDER, SELLER} each with the
+    // latest row or null. Persona tabs flip the rendered view without re-fetching.
+    // Refresh button POSTs to /api/viral-playbook/refresh and polls for the new
+    // saved_id over the next ~45s while Reddit + Claude work in the background.
+    const vpState = { data: null, persona: 'BUILDER', refreshing: false };
+    const vpBody  = document.getElementById('vp-body');
+    const vpTabs  = document.getElementById('vp-tabs');
+    const vpRefresh = document.getElementById('vp-refresh');
+
+    function vpEscape(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+
+    function vpAgeLabel(iso) {
+      if (!iso) return '';
+      const ms = Date.now() - new Date(iso).getTime();
+      if (!Number.isFinite(ms) || ms < 0) return '';
+      const h = ms / 3_600_000;
+      if (h < 1)   return `${Math.max(1, Math.round(ms / 60_000))}m ago`;
+      if (h < 24)  return `${Math.round(h)}h ago`;
+      const d = Math.round(h / 24);
+      return `${d}d ago`;
+    }
+
+    function vpRenderOne(row) {
+      if (!row || !row.playbook) {
+        return `<div class="vp-empty">No playbook yet for this persona — click Refresh to generate one.</div>`;
+      }
+      const p = row.playbook;
+      const parts = [];
+
+      parts.push(`<div class="vp-meta">
+        <span>${row.sample_count || 0} samples</span>
+        <span>·</span>
+        <span>window: ${row.source_window_days || 7}d</span>
+        <span>·</span>
+        <span class="vp-age">${vpEscape(vpAgeLabel(row.generated_at))}</span>
+      </div>`);
+
+      if (p.this_week_summary) {
+        parts.push(`<div class="vp-summary">${vpEscape(p.this_week_summary)}</div>`);
+      }
+
+      if (Array.isArray(p.dominant_hook_patterns) && p.dominant_hook_patterns.length) {
+        const hooks = p.dominant_hook_patterns.slice(0, 4).map((h) => `
+          <div class="vp-hook">
+            <span class="vp-hook-pattern">${vpEscape(h.pattern)}</span>
+            ${h.example ? `<span class="vp-hook-ex">e.g. "${vpEscape(h.example)}"</span>` : ''}
+          </div>
+        `).join('');
+        parts.push(`<div class="vp-section"><h4>Hook patterns winning now</h4>${hooks}</div>`);
+      }
+
+      const t = p.typical_length_seconds || {};
+      if (Number.isFinite(t.median)) {
+        const range = Number.isFinite(t.p25) && Number.isFinite(t.p75)
+          ? ` <span style="color:var(--muted)">(p25=${t.p25}s · p75=${t.p75}s)</span>` : '';
+        parts.push(`<div class="vp-section"><h4>Target length</h4>
+          <div class="vp-length">~${t.median}s${range}</div></div>`);
+      }
+
+      if (p.pacing_notes) {
+        parts.push(`<div class="vp-section"><h4>Pacing</h4>
+          <div class="vp-pacing">${vpEscape(p.pacing_notes)}</div></div>`);
+      }
+
+      if (Array.isArray(p.cta_styles) && p.cta_styles.length) {
+        const chips = p.cta_styles.slice(0, 5).map((c) => `<span class="vp-chip">${vpEscape(c)}</span>`).join('');
+        parts.push(`<div class="vp-section"><h4>CTA styles</h4>${chips}</div>`);
+      }
+
+      if (Array.isArray(p.visual_motifs) && p.visual_motifs.length) {
+        const chips = p.visual_motifs.slice(0, 6).map((c) => `<span class="vp-chip">${vpEscape(c)}</span>`).join('');
+        parts.push(`<div class="vp-section"><h4>Visual motifs</h4>${chips}</div>`);
+      }
+
+      if (Array.isArray(p.avoid) && p.avoid.length) {
+        const chips = p.avoid.slice(0, 5).map((c) => `<span class="vp-chip">${vpEscape(c)}</span>`).join('');
+        parts.push(`<div class="vp-section vp-avoid"><h4>Avoid this week</h4>${chips}</div>`);
+      }
+
+      return parts.join('');
+    }
+
+    function vpRender() {
+      if (!vpState.data) {
+        vpBody.innerHTML = '<div class="vp-empty">loading…</div>';
+        return;
+      }
+      vpBody.innerHTML = vpRenderOne(vpState.data[vpState.persona]);
+    }
+
+    async function vpFetch() {
+      try {
+        const res = await fetch('/api/viral-playbook');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        vpState.data = await res.json();
+        vpRender();
+      } catch (err) {
+        vpBody.innerHTML = `<div class="vp-empty">failed to load: ${vpEscape(err.message)}</div>`;
+      }
+    }
+
+    vpTabs.addEventListener('click', (e) => {
+      const tab = e.target.closest('.vp-tab');
+      if (!tab) return;
+      for (const t of vpTabs.querySelectorAll('.vp-tab')) t.classList.remove('active');
+      tab.classList.add('active');
+      vpState.persona = tab.dataset.persona;
+      vpRender();
+    });
+
+    vpRefresh.addEventListener('click', async () => {
+      if (vpState.refreshing) return;
+      vpState.refreshing = true;
+      vpRefresh.disabled = true;
+      vpRefresh.textContent = 'Working…';
+      try {
+        const res = await fetch('/api/viral-playbook/refresh', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ persona: vpState.persona }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        // Poll every 5s for up to 60s — Reddit fetch + Claude call typically
+        // finishes in ~15-20s per persona.
+        const beforeId = vpState.data?.[vpState.persona]?.id || 0;
+        const deadline = Date.now() + 60_000;
+        const poll = async () => {
+          await vpFetch();
+          const nowId = vpState.data?.[vpState.persona]?.id || 0;
+          if (nowId > beforeId || Date.now() > deadline) return;
+          setTimeout(poll, 5_000);
+        };
+        setTimeout(poll, 5_000);
+      } catch (err) {
+        alert('Refresh failed: ' + err.message);
+      } finally {
+        // Release the button after the polling window regardless of outcome.
+        setTimeout(() => {
+          vpState.refreshing = false;
+          vpRefresh.disabled = false;
+          vpRefresh.textContent = 'Refresh';
+        }, 60_000);
+      }
+    });
+
+    vpFetch();
+
+    // --- Posting schedule card ---
+    // Fetches /api/schedule and renders the next ~9 slots (booked + open).
+    // Auto-refreshes every 60s so the clock advances and newly-approved rows
+    // appear without a manual reload. Also re-fetches on any `change` socket
+    // event so approvals show up instantly.
+    const schedListEl = document.getElementById('sched-list');
+    const schedMetaEl = document.getElementById('sched-meta');
+    const schedStatusEl = document.getElementById('sched-status');
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+
+    async function schedFetch() {
+      try {
+        const res = await fetch('/api/schedule');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderSchedule(data);
+      } catch (err) {
+        schedListEl.innerHTML = `<div class="vp-empty">failed: ${esc(err.message)}</div>`;
+      }
+    }
+
+    function renderSchedule(data) {
+      const { settings, upcoming_slots } = data || {};
+      const enabled = !!settings?.enabled;
+      const times = Array.isArray(settings?.slot_times) ? settings.slot_times : [];
+      const tz = settings?.timezone || '';
+
+      schedStatusEl.textContent = enabled ? 'ON' : 'OFF';
+      schedStatusEl.style.color = enabled ? 'var(--ok, #8fdd8f)' : 'var(--muted)';
+
+      schedMetaEl.innerHTML =
+        `Slots: ${times.map((t) => `<code>${esc(t)}</code>`).join(' · ')}` +
+        ` · zone: <code>${esc(tz)}</code>`;
+
+      if (!upcoming_slots || upcoming_slots.length === 0) {
+        schedListEl.innerHTML = '<div class="vp-empty">no upcoming slots</div>';
+        return;
+      }
+
+      schedListEl.innerHTML = upcoming_slots.map((s) => {
+        if (s.taken && s.video) {
+          const v = s.video;
+          const persona = (v.target_persona || '').slice(0, 7);
+          const topic = (v.topic || '').slice(0, 60);
+          return `<div class="sched-slot taken">
+            <span class="sched-when">${esc(s.localLabel)}</span>
+            <span class="sched-what" title="${esc(v.topic || '')}">${esc(topic)}</span>
+            <span class="sched-persona">${esc(persona)}</span>
+          </div>`;
+        }
+        return `<div class="sched-slot open">
+          <span class="sched-when">${esc(s.localLabel)}</span>
+          <span class="sched-what">open slot</span>
+          <span class="sched-persona" style="background:transparent;color:var(--muted);">—</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Re-fetch on any change event (approvals, publishes) so the card stays live.
+    socket.on('change', () => { schedFetch(); });
+    // Periodic refresh so the clock rolls forward without operator action.
+    setInterval(schedFetch, 60_000);
+    schedFetch();
+  </script>
+</body>
+</html>

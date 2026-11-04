@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gemini Live — Voice Chat</title>
+  <style>
+    :root {
+      --bg: #0b0f17; --panel: #121826; --border: #243049;
+      --text: #e7ecf5; --muted: #8a97b0; --accent: #4ea1ff;
+      --ok: #3ccf91; --bad: #ff6b6b; --warn: #f2b94b;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body {
+      height: 100%; background: var(--bg); color: var(--text);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .container {
+      max-width: 640px; margin: 0 auto; padding: 24px 16px;
+      display: flex; flex-direction: column; gap: 16px; min-height: 100vh;
+    }
+    h1 { font-size: 20px; }
+    h1 small { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+    /* Status bar */
+    .status-bar {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); flex-shrink: 0; }
+    .dot.connected { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.speaking  { background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: pulse .8s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+    .status-text { font-size: 13px; color: var(--muted); }
+
+    /* Config panel */
+    .config {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      padding: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    }
+    .config label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+    .config select, .config input {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 8px; border-radius: 6px; font: inherit; font-size: 13px;
+    }
+    .config .full { grid-column: 1 / -1; }
+
+    /* Big mic button */
+    .mic-wrap { display: flex; justify-content: center; padding: 12px 0; }
+    .mic-btn {
+      width: 100px; height: 100px; border-radius: 50%;
+      background: var(--panel); border: 3px solid var(--border);
+      color: var(--muted); font-size: 36px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s ease; position: relative;
+    }
+    .mic-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mic-btn.active {
+      background: rgba(78,161,255,.15); border-color: var(--accent); color: var(--accent);
+      box-shadow: 0 0 0 6px rgba(78,161,255,.12);
+    }
+    .mic-btn.active::after {
+      content: ''; position: absolute; inset: -6px; border-radius: 50%;
+      border: 2px solid var(--accent); animation: ring 1.5s ease-out infinite;
+    }
+    @keyframes ring {
+      0% { transform: scale(1); opacity: .6; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+
+    /* Transcript */
+    .transcript {
+      flex: 1; padding: 14px; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+      min-height: 200px;
+    }
+    .msg {
+      padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.45;
+      max-width: 85%; animation: fadein .2s ease;
+    }
+    @keyframes fadein { from { opacity:0; transform:translateY(4px) } to { opacity:1; transform:none } }
+    .msg.user { align-self: flex-end; background: rgba(78,161,255,.15); color: var(--accent); }
+    .msg.ai   { align-self: flex-start; background: var(--bg); color: var(--text); }
+    .msg.sys  { align-self: center; color: var(--muted); font-size: 12px; }
+
+    /* Text input fallback */
+    .text-input {
+      display: flex; gap: 8px;
+    }
+    .text-input input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 10px 12px; border-radius: 8px; font: inherit;
+    }
+    .text-input button {
+      background: var(--accent); border: none; color: #001427; padding: 10px 18px;
+      border-radius: 8px; font-weight: 600; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Gemini Live <small>real-time voice chat</small></h1>
+
+  <!-- Connection status -->
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span class="status-text" id="status-text">Disconnected — press the mic to start</span>
+  </div>
+
+  <!-- Session config -->
+  <div class="config">
+    <label>
+      Voice
+      <select id="voice">
+        <option value="Aoede">Aoede</option>
+        <option value="Charon">Charon</option>
+        <option value="Fenrir">Fenrir</option>
+        <option value="Kore">Kore</option>
+        <option value="Puck" selected>Puck</option>
+      </select>
+    </label>
+    <label>
+      Response mode
+      <select id="modalities">
+        <option value="AUDIO">Audio only</option>
+        <option value="AUDIO,TEXT" selected>Audio + Text</option>
+        <option value="TEXT">Text only</option>
+      </select>
+    </label>
+    <label class="full">
+      System instruction (optional)
+      <input id="system-instruction" placeholder='e.g. "You are a helpful CFO assistant for construction companies"' />
+    </label>
+  </div>
+
+  <!-- Mic toggle -->
+  <div class="mic-wrap">
+    <button class="mic-btn" id="mic-btn" title="Click to start / stop">🎤</button>
+  </div>
+
+  <!-- Transcript -->
+  <div class="transcript" id="transcript">
+    <div class="msg sys">Press the mic button to connect and start speaking.</div>
+  </div>
+
+  <!-- Text fallback input -->
+  <form class="text-input" id="text-form">
+    <input id="text-input" placeholder="Or type a message…" autocomplete="off" />
+    <button type="submit">Send</button>
+  </form>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------------
+const dot         = document.getElementById('dot');
+const statusText  = document.getElementById('status-text');
+const micBtn      = document.getElementById('mic-btn');
+const transcript  = document.getElementById('transcript');
+const textForm    = document.getElementById('text-form');
+const textInput   = document.getElementById('text-input');
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let ws            = null;   // WebSocket to our bridge server
+let audioCtx      = null;   // AudioContext for playback
+let micStream     = null;   // MediaStream from getUserMedia
+let micProcessor  = null;   // ScriptProcessorNode capturing PCM
+let isActive      = false;  // Mic session active?
+let audioQueue    = [];     // Queued PCM chunks waiting to play
+let isPlaying     = false;  // Are we currently playing back audio?
+
+// Audio format constants
+const MIC_SAMPLE_RATE      = 16000;  // What Gemini expects for input
+const PLAYBACK_SAMPLE_RATE = 24000;  // What Gemini sends back
+const BUFFER_SIZE          = 4096;   // ScriptProcessor buffer size
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function setStatus(text, state) {
+  statusText.textContent = text;
+  dot.className = 'dot' + (state ? ' ' + state : '');
+}
+
+function addMessage(text, role) {
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  el.textContent = text;
+  transcript.appendChild(el);
+  transcript.scrollTop = transcript.scrollHeight;
+}
+
+// Convert a Float32Array (range -1..1) to 16-bit PCM, then to base64.
+function float32ToBase64PCM(float32) {
+  const pcm16 = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]));
+    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  // Convert Int16Array to base64
+  const bytes = new Uint8Array(pcm16.buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+// Decode base64 PCM 16-bit into a Float32Array for Web Audio playback.
+function base64PCMToFloat32(b64, sampleRate) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const pcm16 = new Int16Array(bytes.buffer);
+  const float32 = new Float32Array(pcm16.length);
+  for (let i = 0; i < pcm16.length; i++) {
+    float32[i] = pcm16[i] / (pcm16[i] < 0 ? 0x8000 : 0x7FFF);
+  }
+  return float32;
+}
+
+// ---------------------------------------------------------------------------
+// Audio playback — queues Gemini PCM chunks and plays them in sequence
+// ---------------------------------------------------------------------------
+function enqueueAudio(b64Data) {
+  audioQueue.push(b64Data);
+  if (!isPlaying) playNext();
+}
+
+function playNext() {
+  if (audioQueue.length === 0) {
+    isPlaying = false;
+    if (isActive) setStatus('Listening…', 'connected');
+    return;
+  }
+  isPlaying = true;
+  setStatus('Gemini speaking…', 'speaking');
+
+  const b64 = audioQueue.shift();
+  const float32 = base64PCMToFloat32(b64, PLAYBACK_SAMPLE_RATE);
+
+  if (!audioCtx) audioCtx = new AudioContext({ sampleRate: PLAYBACK_SAMPLE_RATE });
+
+  const buffer = audioCtx.createBuffer(1, float32.length, PLAYBACK_SAMPLE_RATE);
+  buffer.getChannelData(0).set(float32);
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioCtx.destination);
+  source.onended = playNext;
+  source.start();
+}
+
+// ---------------------------------------------------------------------------
+// Mic capture — getUserMedia → ScriptProcessor → PCM → base64 → WebSocket
+// ---------------------------------------------------------------------------
+async function startMic() {
+  // Request mic access at our target sample rate
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      channelCount: 1,
+      sampleRate: { ideal: MIC_SAMPLE_RATE },
+      echoCancellation: true,
+      noiseSuppression: true,
+    },
+  });
+
+  // AudioContext for mic capture (may differ from playback context)
+  const micCtx = new AudioContext({ sampleRate: MIC_SAMPLE_RATE });
+  const source = micCtx.createMediaStreamSource(micStream);
+
+  // ScriptProcessorNode — simple, widely supported. Captures PCM buffers.
+  // (AudioWorklet is the modern replacement, but requires a separate file
+  // and HTTPS context. ScriptProcessor works fine for this use case.)
+  micProcessor = micCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
+
+  micProcessor.onaudioprocess = (e) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const float32 = e.inputBuffer.getChannelData(0);
+    const b64 = float32ToBase64PCM(float32);
+    ws.send(JSON.stringify({ type: 'audio', data: b64 }));
+  };
+
+  // Connect: mic → processor → destination (must connect to dest for processing to fire)
+  source.connect(micProcessor);
+  micProcessor.connect(micCtx.destination);
+}
+
+function stopMic() {
+  if (micProcessor) { micProcessor.disconnect(); micProcessor = null; }
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+}
+
+// ---------------------------------------------------------------------------
+// WebSocket connection to our bridge server
+// ---------------------------------------------------------------------------
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = `${proto}//${location.host}/ws/live`;
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setStatus('Connected — configuring session…', 'connected');
+
+    // Send session config before any audio
+    const modalities = document.getElementById('modalities').value.split(',');
+    const sysInstr = document.getElementById('system-instruction').value.trim();
+    ws.send(JSON.stringify({
+      type: 'config',
+      voice: document.getElementById('voice').value,
+      responseModalities: modalities,
+      systemInstruction: sysInstr || undefined,
+    }));
+
+    // Trigger Gemini connection
+    ws.send(JSON.stringify({ type: 'start' }));
+  };
+
+  ws.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+
+    switch (msg.type) {
+      case 'setup_complete':
+        setStatus('Listening…', 'connected');
+        addMessage('Session started — speak or type.', 'sys');
+        startMic();
+        break;
+
+      case 'audio':
+        enqueueAudio(msg.data);
+        break;
+
+      case 'text':
+        addMessage(msg.text, 'ai');
+        break;
+
+      case 'turn_complete':
+        // Gemini finished speaking
+        if (!isPlaying) setStatus('Listening…', 'connected');
+        break;
+
+      case 'error':
+        addMessage(`⚠ ${msg.message}`, 'sys');
+        setStatus(`Error: ${msg.message}`, '');
+        break;
+    }
+  };
+
+  ws.onclose = () => {
+    setStatus('Disconnected', '');
+    isActive = false;
+    micBtn.classList.remove('active');
+    stopMic();
+  };
+
+  ws.onerror = () => {
+    setStatus('Connection failed', '');
+  };
+}
+
+function disconnect() {
+  stopMic();
+  if (ws) { ws.close(); ws = null; }
+  audioQueue = [];
+  isPlaying = false;
+  setStatus('Disconnected — press the mic to reconnect', '');
+}
+
+// ---------------------------------------------------------------------------
+// Mic button toggle
+// ---------------------------------------------------------------------------
+micBtn.addEventListener('click', async () => {
+  if (isActive) {
+    isActive = false;
+    micBtn.classList.remove('active');
+    disconnect();
+  } else {
+    isActive = true;
+    micBtn.classList.add('active');
+    connect();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Text input fallback
+// ---------------------------------------------------------------------------
+textForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = textInput.value.trim();
+  if (!text) return;
+
+  // If not connected, connect first
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    addMessage('Connect first by pressing the mic button.', 'sys');
+    return;
+  }
+
+  addMessage(text, 'user');
+  ws.send(JSON.stringify({ type: 'text', text }));
+  textInput.value = '';
+});
+</script>
+</body>
+</html>

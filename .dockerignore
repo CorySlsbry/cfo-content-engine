@@ -1,0 +1,35 @@
+# Don't ship these to Cloud Build (and don't let them clobber the container fs).
+
+# Always stale: platform-specific node_modules from Windows dev box.
+# The Dockerfile's `npm ci` re-resolves for Linux.
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Local data + artifacts (all live in Supabase + GCS now).
+data
+output
+logs
+
+# Secrets — must come from Secret Manager in Cloud Run.
+.env
+.env.*
+!.env.example
+
+# Windows-only helpers.
+restart-engine.bat
+make-desktop-shortcut.ps1
+
+# Dev/tooling.
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+.claude
+*.md
+
+# Container-in-container artifacts.
+Dockerfile
+.dockerignore
+cloudbuild.yaml
